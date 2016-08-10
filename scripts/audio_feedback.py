@@ -8,7 +8,6 @@ import pygame
 import pyttsx
 import os
 import glob
-import time
 
 class Audio:
     def __init__(self):
@@ -39,10 +38,6 @@ class Audio:
                 pygame.mixer.music.load(self.audio_path)
                 pygame.mixer.music.play()
             self.counted = self.timer()
-        elif (gesture == '') and (self.count < 75):
-            pygame.mixer.music.stop()
-            self.counted = 0
-            self.count = 0
         else:
             pygame.mixer.music.stop()
             self.counted = 0
@@ -53,13 +48,14 @@ class Audio:
             for i in range(len(self.list)):
                 if (gesture == self.list[i]) and (self.previous_gesture != self.list[i]):
                     pygame.mixer.music.stop()
-                    self.engine = pyttsx.init('espeak')
-                    self.engine.setProperty('rate', 100)
-                    self.engine.say(unicode(str(self.list[i]), "utf-8"))
-                    self.engine.runAndWait()
+                    engine = pyttsx.init('espeak')
+                    engine.setProperty('rate', 100)
+                    engine.say(unicode(str(self.list[i]), "utf-8"))
+                    engine.runAndWait()
                     self.counted = 0
                     self.count = 0
                     self.previous_gesture = gesture
+                    break
 
 
     def timer(self):
