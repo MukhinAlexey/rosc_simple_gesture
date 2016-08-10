@@ -12,16 +12,21 @@ import os
 # noinspection PyPep8Naming
 class Filter:
     def __init__(self):
-        self.node_name = "stratom_image_filter"
+        # Initialize ROS
+        self.node_name = "image_filter"
         rospy.init_node(self.node_name)
-
         rospy.on_shutdown(self.cleanup)
 
         self.bridge = CvBridge()
 
-        self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
+        # Parameters for subscirbed and published topic
+        camera_topic = rospy.get_param('~/camera_topic')
+        filtered_image_topic = rospy.get_param('~/filtered_image_topic')
 
-        self.img_pub = rospy.Publisher('filtered_image', Image, queue_size=10)
+        #Subscribe and Publish to Topics
+        self.depth_sub = rospy.Subscriber(camera_topic, Image, self.depth_callback)
+        self.img_pub = rospy.Publisher(filtered_image_topic, Image, queue_size=10)
+
         rospy.loginfo("Loading Filter Node...")
 
     def depth_callback(self, ros_image):
@@ -35,25 +40,29 @@ class Filter:
 
         outImg = self.process_depth_image(inImgarr)
 
+        # Suppresses Pipe output
         sys.stdout = open(os.devnull, "w")
         imgmsg = self.bridge.cv2_to_imgmsg(outImg, "8UC1")
         sys.stdout = sys.__stdout__
 
+        # Publish image message
         self.img_pub.publish(imgmsg)
 
     @staticmethod
     def process_depth_image(inImg):
 
+        # Removes data outside of desired range
         np.clip(inImg, 0, 1028, inImg)
         inImg >>= 2
         inImg = inImg.astype(np.uint8)
         ret, inImg = cv2.threshold(inImg, 70, 255, cv2.THRESH_BINARY)
 
+        #Find Dimensions and crop images
         height, width = inImg.shape[:2]
         crop_Img = inImg[height * 1 / 4:height * 3 / 4, width * 1 / 4:width * 3 / 4]
 
-        # cv2.imshow("Cropped Image",crop_Img)
-        # cv2.waitKey(3)
+        #cv2.imshow("Cropped Image", crop_Img)
+        #cv2.waitKey(3)
         return crop_Img
 
     @staticmethod

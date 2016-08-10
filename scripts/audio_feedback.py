@@ -2,70 +2,82 @@
 
 import rospy
 import sys
-import cv2
 from std_msgs.msg import String
 import pygame
 import pyttsx
 import os
 import glob
+import time
+
 
 class Audio:
     def __init__(self):
-        self.node_name = "stratom_audio_feedback"
+
+        # Initialize ROS
+        self.node_name = "audio_feedback"
         rospy.init_node(self.node_name)
+
+        #Used for beeping noise
         pygame.init()
 
-        # Params are used to get path to gestures folders in simple_gesture package
-        gesture_path = rospy.get_param('~/gesture_path')
-
+        # Params are used to get path to audio file
         file_path = rospy.get_param('~/file_path')
         self.audio_path = glob.glob(str(file_path) + '/*')[0]
 
-        # A list of the gestures is generated
-        self.list = os.listdir(gesture_path)
+        # Subcribed topic and timer constant are read from parameters
+        gesture_detected = rospy.get_param('~/gesture_detected_topic')
+        timer = rospy.get_param('~/timer')
 
-        rospy.on_shutdown(self.cleanup)
-        rospy.Subscriber("gesture_detected", String, self.gest_callback)
+        # Subscribe to detected gesture
+        rospy.Subscriber(gesture_detected, String, self.gest_callback)
+
+        # Initialize variables and constants
+        self.match_time = timer
         self.previous_gesture = ""
-        self.count = 0
-        self.counted = 0
+        self.current_gesture = ""
+        self.first_message = True
+        self.last_message_time = 0
+        self.current_time = 0
+
         rospy.loginfo("Loading Audio Feedback Node...")
 
     def gest_callback(self, gesture):
-        gesture = gesture.data
-        if (gesture != '') and (self.counted < 75) and (self.previous_gesture != gesture):
-            if pygame.mixer.music.get_busy() == False:
+
+        # if different gesture is being detected, begin timer
+        if gesture.data != self.current_gesture:
+            self.last_message_time = self.millis()
+
+        # Calculate time elapsed
+        delta_time = self.millis() - self.last_message_time
+
+        # if no gesture is detected or an old gesture is detected, cut music and update current gesture
+        if gesture.data == '' or (self.previous_gesture == gesture.data):
+            self.current_gesture = ""
+            pygame.mixer.music.stop()
+
+        # Else if time has not elapsed and a new gesture is detected, play beep. Also, update current gesture
+        elif (delta_time < self.match_time) and (self.previous_gesture != gesture.data):
+            if not pygame.mixer.music.get_busy():
                 pygame.mixer.music.load(self.audio_path)
                 pygame.mixer.music.play()
-            self.counted = self.timer()
-        else:
-            pygame.mixer.music.stop()
-            self.counted = 0
-            self.count = 0
+            self.current_gesture = gesture.data
 
+        # Else if time has elapsed and we have a new gesture, stop beeping, play voice, and update gestures and time.
+        elif (gesture.data != self.previous_gesture) and (delta_time >= self.match_time):
+            engine = pyttsx.init('espeak')
+            engine.setProperty('rate', 100)
+            while engine.isBusy():
+                pygame.mixer.music.stop()
+                engine.say(unicode(str(gesture.data)), "utf-8")
+                engine.runAndWait()
+                self.previous_gesture = gesture.data
+                self.last_message_time = self.last_message_time
+                #print gesture.data
+                break
 
-        if (gesture != '') and (self.counted >= 75):
-            for i in range(len(self.list)):
-                if (gesture == self.list[i]) and (self.previous_gesture != self.list[i]):
-                    pygame.mixer.music.stop()
-                    engine = pyttsx.init('espeak')
-                    engine.setProperty('rate', 100)
-                    engine.say(unicode(str(self.list[i]), "utf-8"))
-                    engine.runAndWait()
-                    self.counted = 0
-                    self.count = 0
-                    self.previous_gesture = gesture
-                    break
-
-
-    def timer(self):
-        while self.count <= 75:
-            self.count = self.count + 1
-            return self.count
-
-    def cleanup(self):
-        print "Shutting down recognition node."
-        cv2.destroyAllWindows()
+    @staticmethod
+    def millis():
+        return int(round(time.time() * 1000))
 
 
 def main(args):
@@ -74,8 +86,6 @@ def main(args):
         rospy.spin()
     except KeyboardInterrupt:
         print "Shutting down recognition node."
-        cv2.destroyAllWindows()
-
 
 if __name__ == '__main__':
     main(sys.argv)

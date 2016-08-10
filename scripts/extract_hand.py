@@ -10,28 +10,38 @@ from cv_bridge import CvBridge, CvBridgeError
 import os
 import glob
 
+
+# noinspection PyPep8Naming
 class HandGestures:
     def __init__(self):
+
         # Initialize ROS
-        self.node_name = "stratom_hand_extraction"
+        self.node_name = "hand_extraction"
         rospy.init_node(self.node_name)
         rospy.on_shutdown(self.cleanup)
 
         self.bridge = CvBridge()
 
-        # Subscribe to filtered image
-        self.depth_sub = rospy.Subscriber("filtered_image", Image, self.recog_callback)
+        # Parameters for subscirbed and published topic
+        filtered_image_topic = rospy.get_param('~/filtered_image_topic')
+        gesture_detected = rospy.get_param('~/gesture_detected_topic')
 
-        #Params are used to get path to gestures folders in simple_gesture package
+        # Subscribe and publish to topics
+        self.depth_sub = rospy.Subscriber(filtered_image_topic, Image, self.recog_callback)
+        self.pub_gest = rospy.Publisher(gesture_detected, String, queue_size=10, latch=True)
+
+        # Params are used to get path to gestures folders in simple_gesture package
         gesture_path = rospy.get_param('~/gesture_path')
 
-        #A list of the gestures is generated
+        # A list of the gestures is generated
         self.list = os.listdir(gesture_path)
 
-        path = [None] *len(self.list)
+        # Arrays are initialized
+        path = [None] * len(self.list)
         image_path = [None] * len(self.list)
         self.temp = [None] * len(self.list)
 
+        # Search gesture folder for image path and read templates
         for i in range(len(self.list)):
             path[i] = str(gesture_path) + '/' + str(self.list[i])
 
@@ -39,13 +49,7 @@ class HandGestures:
 
             self.temp[i] = cv2.imread(image_path[i], 0)
 
-
-        # Publish detected hand gesture
-        self.pub_gest = rospy.Publisher('gesture_detected', String, queue_size=10, latch=True)
-
-        # Global Variables
         self.gesture_detected = ""
-        self.count = 0
 
         rospy.loginfo("Loading Hand Extraction Node...")
 
@@ -55,13 +59,13 @@ class HandGestures:
         except CvBridgeError, e:
             print e
 
-        #Initialize Conditions
+        # Initialize Conditions
         detected = False
         displayText = "Not Detected"
         top_left = None
         bottom_right = None
 
-        #Initialize Arrays
+        # Initialize Arrays
         resized_temp = [None] * len(self.list)
         h = [None] * len(self.list)
         w = [None] * len(self.list)
@@ -70,7 +74,9 @@ class HandGestures:
         min_loc = [None] * len(self.list)
         prob = [None] * len(self.list)
 
+        # Begin searching through gestures
         for i in range(len(self.list)):
+            # Linspace creates array to scale image size
             for scale in np.linspace(1.0, 3.0, 10)[::1]:
                 # resize the templates according to the scale and find their dimensions
                 resized_temp[i] = imutils.resize(self.temp[i], width=int(self.temp[i].shape[0] * scale))
@@ -83,13 +89,17 @@ class HandGestures:
                 if inImg.shape[1] < w[i]:
                     break
 
+                # Note: the matchTemplate is using a min function
                 res[i] = cv2.matchTemplate(inImg, resized_temp[i], 1)
                 min_val[i], _, min_loc[i], _ = cv2.minMaxLoc(res[i])
                 prob[i] = 1 - float(min_val[i])
 
+                #Calculate most probable and get parameters for probaility threshold
                 most_prob_val = max(prob)
+                prob_const = rospy.get_param('~/probability')
 
-                if (most_prob_val > 0.7):
+                # Find most probable gesture and locate on the image
+                if most_prob_val > prob_const:
                     ind = prob.index(max(prob))
                     detected = True
                     self.gesture_detected = str(self.list[ind])
@@ -100,24 +110,32 @@ class HandGestures:
                     self.gesture_detected = ""
                     break
 
+        #Calculate Camera Image Dimensions
         height, width = inImg.shape[:2]
-        if detected == True:
+
+        #Displays to HUD
+        if detected:
             displayText = "Detected"
 
+        #Publishes detected gesture
         self.pub_gest.publish(self.gesture_detected)
 
-        # Creates Viewable Image with HUD
-        cv2.rectangle(inImg, top_left, bottom_right, 155, 1)
-        cv2.putText(inImg, self.gesture_detected, (top_left), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (122, 0, 255))
-        cv2.putText(inImg, displayText, (width / 3, height / 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (122, 0, 255))
-        cv2.imshow("Gesture Detection", inImg)
-        cv2.waitKey(3)
+        # Creates Viewable Image with HUD if param "show" is True
+        show = rospy.get_param('~/show')
+        if show == True:
+            cv2.rectangle(inImg, top_left, bottom_right, 155, 1)
+            cv2.putText(inImg, self.gesture_detected, top_left, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (122, 0, 255))
+            cv2.putText(inImg, displayText, (width / 3, height / 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (122, 0, 255))
+            cv2.imshow("Gesture Detection", inImg)
+            cv2.waitKey(3)
 
-    def cleanup(self):
+    @staticmethod
+    def cleanup():
         print "Shutting down recognition node."
         cv2.destroyAllWindows()
 
 
+# noinspection PyUnusedLocal
 def main(args):
     try:
         HandGestures()
