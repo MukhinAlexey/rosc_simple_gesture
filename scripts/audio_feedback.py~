@@ -5,6 +5,7 @@ import sys
 from std_msgs.msg import String
 import pygame
 import pyttsx
+import os
 import glob
 import time
 
@@ -54,7 +55,7 @@ class Audio:
             self.current_gesture = ""
             pygame.mixer.music.stop()
 
-        # Else if time has not elapsed and a new gesture is detected, play music. Also, update current gesture
+        # Else if time has not elapsed and a new gesture is detected, play beep. Also, update current gesture
         elif (delta_time < self.match_time) and (self.previous_gesture != gesture.data):
             if not pygame.mixer.music.get_busy():
                 pygame.mixer.music.load(self.audio_path)
@@ -71,6 +72,7 @@ class Audio:
                 engine.runAndWait()
                 self.previous_gesture = gesture.data
                 self.last_message_time = self.last_message_time
+                break
 
     @staticmethod
     def millis():

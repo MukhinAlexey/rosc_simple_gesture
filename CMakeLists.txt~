@@ -36,10 +36,6 @@ catkin_install_python(PROGRAMS scripts/extract_hand.py
 
 catkin_install_python(PROGRAMS scripts/audio_feedback.py
                       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
-catkin_install_python(PROGRAMS scripts/control.py
-                      DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
- 
  
 
 

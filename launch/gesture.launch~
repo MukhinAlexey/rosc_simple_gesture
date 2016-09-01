@@ -9,6 +9,8 @@
 	<node name="extract_hand" pkg="simple_gesture" type="extract_hand.py" output="screen"/>
 		<!--Parameters for published topic, extract_hand subscribes to filtered_image_topic--> 
 		<param name="gesture_detected_topic" value="gesture_detected" />
+		<param name="gesture_location_topic" value="gesture_location" />
+		<param name="gesture_depth_topic" value="gesture_depth" />
 		
 		<!--Parameters for image paths-->
 		<param name="gesture_path" value="$(find simple_gesture)/files/gestures" />
@@ -20,10 +22,19 @@
 		<!--Parameter for turning HUD on or off-->
 		<param name="show" value="True" />
 	
-	
 	<node name="audio_feedback" pkg="simple_gesture" type="audio_feedback.py" output="screen"/>
-		
+		<!--Subscribes to paramater "gesture_detected_topic"-->
+		<!--Parameter for timer constant-->
+		<param name="timer" value="1000" />
 
+  <!-- Gesture Control Node -->
+	<node name="gesture_control" pkg="gesture_control" type="control.py" output="screen"/>
+		<!--Parameters for subscribed and published topics-->
+		<param name="gesture_detected_topic" value="gesture_detected" />
+		<param name="gesture_location_topic" value="gesture_location" />
+		<param name="gesture_depth_topic" value="gesture_depth" />
+		<param name="twist_topic" value="/motor_control" />
+		
   <!-- "camera" should uniquely identify the device. All topics are pushed down
        into the "camera" namespace, and it is prepended to tf frame ids. -->
   <arg name="camera" default="camera" />

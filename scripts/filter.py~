@@ -52,14 +52,12 @@ class Filter:
     def process_depth_image(inImg):
 
         # Removes data outside of desired range
-        np.clip(inImg, 0, 1024, inImg)
+        np.clip(inImg, 0, 1028, inImg)
         inImg >>= 2
         inImg = inImg.astype(np.uint8)
+        ret, inImg = cv2.threshold(inImg, 70, 255, cv2.THRESH_BINARY)
 
-        #Removed thresholding to allow for depth dependent robot control
-        #ret, inImg = cv2.threshold(inImg, 70, 255, cv2.THRESH_BINARY)
-
-        #Get image dimensions and crop images
+        #Find Dimensions and crop images
         height, width = inImg.shape[:2]
         crop_Img = inImg[height * 1 / 4:height * 3 / 4, width * 1 / 4:width * 3 / 4]
 

@@ -2,7 +2,7 @@
   <name>simple_gesture</name>
   <version>0.2.2</version>
   <description>
-    Simple_gesture package
+    Launch files for gesture control package
   </description>
   <maintainer email="oscar.ruiz@stratom.com">Oscar Ruiz</maintainer>
   <license>BSD</license>
